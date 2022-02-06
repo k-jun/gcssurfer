@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"fmt"
 	"os"
 	"runtime"
@@ -9,8 +8,6 @@ import (
 
 	"github.com/alecthomas/kong"
 	"github.com/cli/safeexec"
-	"golang.org/x/oauth2/google"
-	"google.golang.org/api/compute/v1"
 
 	"github.com/k-jun/gcssurfer/pkg/c"
 )
@@ -38,7 +35,7 @@ type CLI struct {
 	Debug   string           `help:"Write debug log info file" short:"d" type:"path"`
 	Version kong.VersionFlag `help:"Print version information and exit" short:"v"`
 
-	Project string `help:"Project id search into" short:"p" optional`
+	Project string `help:"Project id search into" short:"p" required`
 	Bucket  string `help:"GCS bucket name" short:"b" optional`
 }
 
@@ -63,10 +60,6 @@ func init() {
 }
 
 func main() {
-	credentials := defaultCredentials(context.TODO(), compute.ComputeScope)
-	fmt.Println(credentials.ProjectID)
-	return
-
 	buildInfo := buildInfo{
 		Version:  version,
 		Revision: revision,
@@ -79,13 +72,7 @@ func main() {
 		kong.UsageOnError(),
 		kong.Vars{"version": buildInfo.String()},
 	)
-	if cli.Project == "" {
-		credentials := defaultCredentials(context.TODO(), compute.ComputeScope)
-		cli.Project = credentials.ProjectID
-		fmt.Println(credentials.ProjectID)
-	}
 
-	fmt.Println("hello", cli.Project)
 	c.NewController(
 		cli.Project,
 		cli.Bucket,
@@ -94,12 +81,4 @@ func main() {
 	)
 
 	ctx.FatalIfErrorf(nil)
-}
-
-func defaultCredentials(ctx context.Context, scope string) *google.Credentials {
-	credentials, err := google.FindDefaultCredentials(ctx, scope)
-	if err != nil {
-		panic(err)
-	}
-	return credentials
 }
