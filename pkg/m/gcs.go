@@ -9,8 +9,6 @@ import (
 	"strings"
 
 	"cloud.google.com/go/storage"
-	"golang.org/x/oauth2/google"
-	"google.golang.org/api/compute/v1"
 	"google.golang.org/api/iterator"
 )
 
@@ -39,28 +37,17 @@ type GCSManager interface {
 	Download(object *storage.ObjectHandle, destPath string) (n int64, err error)
 }
 
-func NewGCSManager(projectID string) GCSManager {
+func NewGCSManager(project string) GCSManager {
 	gcsm := GCSModel{}
 	client, err := storage.NewClient(context.TODO())
 	if err != nil {
 		panic(err)
 	}
 	gcsm.client = client
-
-	if projectID == "" {
-		credentials := defaultCredentials(context.TODO(), compute.ComputeScope)
-		projectID = credentials.ProjectID
-	}
-	gcsm.setAvailableBuckets(projectID)
-	return &gcsm
-}
-
-func defaultCredentials(ctx context.Context, scope string) *google.Credentials {
-	credentials, err := google.FindDefaultCredentials(ctx, scope)
-	if err != nil {
+	if err := gcsm.setAvailableBuckets(project); err != nil {
 		panic(err)
 	}
-	return credentials
+	return &gcsm
 }
 
 func (gcsm *GCSModel) Bucket() *storage.BucketHandle {
