@@ -3,6 +3,9 @@ package m
 import (
 	"context"
 	"fmt"
+	"io"
+	"os"
+	"path/filepath"
 	"strings"
 
 	"cloud.google.com/go/storage"
@@ -18,13 +21,13 @@ type GCSBucket struct {
 
 type GCSModel struct {
 	client           *storage.Client
-	bucket           string
+	bucket           *storage.BucketHandle
 	availableBuckets []*storage.BucketAttrs
 	prefix           string
 }
 
 type GCSManager interface {
-	Bucket() string
+	Bucket() *storage.BucketHandle
 	SetBucket(bucket string) error
 	AvailableBuckets() []*storage.BucketAttrs
 	Prefix() string
@@ -32,8 +35,8 @@ type GCSManager interface {
 	MoveUp() error
 	MoveDown(prefix string) error
 	List() (prefixes []string, keys []string, err error)
-	ListObjects(key string) []interface{}
-	Download(object interface{}, destPath string) (n int64, err error)
+	ListObjects(key string) ([]string, error)
+	Download(object *storage.ObjectHandle, destPath string) (n int64, err error)
 }
 
 func NewGCSManager(projectID string) GCSManager {
@@ -60,14 +63,14 @@ func defaultCredentials(ctx context.Context, scope string) *google.Credentials {
 	return credentials
 }
 
-func (gcsm *GCSModel) Bucket() string {
+func (gcsm *GCSModel) Bucket() *storage.BucketHandle {
 	return gcsm.bucket
 }
 
 func (gcsm *GCSModel) SetBucket(bucket string) error {
-	if gcsm.bucket != "" {
-		return fmt.Errorf("bucket is already set: %s", gcsm.bucket)
-	}
+	// if gcsm.bucket != "" {
+	// 	return fmt.Errorf("bucket is already set: %s", gcsm.bucket)
+	// }
 
 	for _, ab := range gcsm.AvailableBuckets() {
 		if ab.Name != bucket {
@@ -75,7 +78,7 @@ func (gcsm *GCSModel) SetBucket(bucket string) error {
 		}
 
 		// found
-		gcsm.bucket = bucket
+		// gcsm.bucket = bucket
 
 		// TODO
 		// opts := []optsFunc{
@@ -152,15 +155,83 @@ func (gcsm *GCSModel) MoveDown(prefix string) error {
 }
 
 func (gcsm *GCSModel) List() (prefixes []string, keys []string, err error) {
-	panic("not implemented") // TODO: Implement
+	query := &storage.Query{
+		Prefix:    gcsm.prefix,
+		Delimiter: "/",
+	}
+
+	it := gcsm.bucket.Objects(context.TODO(), query)
+	for {
+		attrs, err := it.Next()
+		if err == iterator.Done {
+			break
+		}
+		if err != nil {
+			return prefixes, keys, err
+		}
+		if attrs.Name == "" {
+			prefixes = append(prefixes, attrs.Prefix)
+			continue
+		}
+		keys = append(keys, attrs.Name)
+
+	}
+	return prefixes, keys, err
 }
 
-func (gcsm *GCSModel) ListObjects(key string) []interface{} {
-	panic("not implemented") // TODO: Implement
+func (gcsm *GCSModel) ListObjects(key string) ([]string, error) {
+	query := &storage.Query{
+		Prefix:    gcsm.prefix,
+		Delimiter: "/",
+	}
+
+	var names []string
+	it := gcsm.bucket.Objects(context.TODO(), query)
+	for {
+		attrs, err := it.Next()
+		if err == iterator.Done {
+			break
+		}
+		if err != nil {
+			return names, err
+		}
+		if attrs.Name == "" {
+			names = append(names, attrs.Prefix)
+			continue
+		}
+		names = append(names, attrs.Name)
+
+	}
+	return names, nil
 }
 
-func (gcsm *GCSModel) Download(object interface{}, destPath string) (n int64, err error) {
-	panic("not implemented") // TODO: Implement
+func (gcsm *GCSModel) Download(object *storage.ObjectHandle, destPath string) (n int64, err error) {
+	if err = os.MkdirAll(filepath.Dir(destPath), 0700); err != nil {
+		return 0, err
+	}
+
+	_, err = os.Stat(destPath)
+	if err == nil {
+		return 0, fmt.Errorf("exists")
+	}
+
+	f, err := os.Create(destPath)
+	if err != nil {
+		return 0, err
+	}
+	// #gosec G307
+	defer func() {
+		if err := f.Close(); err != nil {
+			panic(err)
+		}
+	}()
+
+	rc, err := object.NewReader(context.TODO())
+	if err != nil {
+		return 0, fmt.Errorf("Object(%v).NewReader: %v", object, err)
+	}
+	defer rc.Close()
+	return io.Copy(f, rc)
 }
 
 func upperPrefix(prefix string) string {
