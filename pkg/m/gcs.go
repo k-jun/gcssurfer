@@ -65,32 +65,7 @@ func (gcsm *GCSModel) SetBucket(bucket string) error {
 		}
 
 		// found
-		// gcsm.bucket = bucket
-
-		// TODO
-		// opts := []optsFunc{
-		// 	config.WithRegion(ab.Region),
-		// }
-		// if gcsm.endpointURL != "" {
-		// 	endpoint := aws.EndpointResolverFunc(func(service, r string) (aws.Endpoint, error) {
-		// 		return aws.Endpoint{
-		// 			URL:               gcsm.endpointURL,
-		// 			SigningRegion:     r,
-		// 			HostnameImmutable: gcsm.pathStyle,
-		// 		}, nil
-		// 	})
-		// 	opts = append(opts, config.WithEndpointResolver(endpoint))
-		// }
-
-		// // re-create client with region
-		// cfg, err := config.LoadDefaultConfig(context.TODO(), opts...)
-		// if err != nil {
-		// 	panic(err)
-		// }
-
-		// gcsm.client = s3.NewFromConfig(cfg)
-		// gcsm.downloader = gcsmanager.NewDownloader(gcsm.client)
-
+		gcsm.bucket = gcsm.client.Bucket(ab.Name)
 		return nil
 	}
 

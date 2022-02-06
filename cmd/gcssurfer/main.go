@@ -73,12 +73,12 @@ func main() {
 		kong.Vars{"version": buildInfo.String()},
 	)
 
-	c.NewController(
+	err := c.NewController(
 		cli.Project,
 		cli.Bucket,
 		cli.Debug,
 		buildInfo.String(),
-	)
+	).Run()
 
-	ctx.FatalIfErrorf(nil)
+	ctx.FatalIfErrorf(err)
 }
