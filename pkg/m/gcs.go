@@ -146,7 +146,7 @@ func (gcsm *GCSModel) List() (prefixes []string, keys []string, err error) {
 
 func (gcsm *GCSModel) ListObjects(key string) ([]*storage.ObjectAttrs, error) {
 	query := &storage.Query{
-		Prefix: gcsm.prefix,
+		Prefix: gcsm.prefix + key,
 	}
 
 	var objs []*storage.ObjectAttrs
