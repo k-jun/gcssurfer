@@ -12,7 +12,7 @@ import (
 	"github.com/k-jun/gcssurfer/pkg/c"
 )
 
-const version = "1.0.0"
+const version = "1.0.9"
 
 var revision = "HEAD"
 
@@ -35,8 +35,8 @@ type CLI struct {
 	Debug   string           `help:"Write debug log info file" short:"d" type:"path"`
 	Version kong.VersionFlag `help:"Print version information and exit" short:"v"`
 
-	Project string `help:"Project id search into" short:"p" required`
-	Bucket  string `help:"GCS bucket name" short:"b" optional`
+	Project string `help:"Project id search into" short:"p" arg:"required"`
+	Bucket  string `help:"GCS bucket name" short:"b" arg:"optional"`
 }
 
 func init() {

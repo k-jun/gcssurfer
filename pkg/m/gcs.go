@@ -25,7 +25,7 @@ type GCSModel struct {
 }
 
 type GCSManager interface {
-	Bucket() *storage.BucketHandle
+	Bucket() string
 	SetBucket(bucket string) error
 	AvailableBuckets() []*storage.BucketAttrs
 	Prefix() string
@@ -50,8 +50,15 @@ func NewGCSManager(project string) GCSManager {
 	return &gcsm
 }
 
-func (gcsm *GCSModel) Bucket() *storage.BucketHandle {
-	return gcsm.bucket
+func (gcsm *GCSModel) Bucket() string {
+	if gcsm.bucket == nil {
+		return ""
+	}
+	attr, err := gcsm.bucket.Attrs(context.TODO())
+	if err != nil {
+		panic(err)
+	}
+	return attr.Name
 }
 
 func (gcsm *GCSModel) SetBucket(bucket string) error {

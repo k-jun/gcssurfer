@@ -1,7 +1,6 @@
 package c
 
 import (
-	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -123,7 +122,7 @@ func (c Controller) updateList() {
 	c.v.List.Clear()
 
 	c.Debugf(">> updateList bucket=%s\n", c.m.Bucket())
-	if c.m.Bucket() == nil {
+	if c.m.Bucket() == "" {
 		c.Debugf("select bucket\n")
 		buckets := c.m.AvailableBuckets()
 		c.Debugf("available buckets=%v\n", buckets)
@@ -144,11 +143,7 @@ func (c Controller) updateList() {
 		}
 	} else {
 		c.Debugf("select prefix or object\n")
-		attrs, err := c.m.Bucket().Attrs(context.TODO())
-		if err != nil {
-			panic(err)
-		}
-		c.v.List.SetTitle("[ [::b]gs://" + attrs.Name + "/" + c.m.Prefix() + "[::-] ]")
+		c.v.List.SetTitle("[ [::b]gs://" + c.m.Bucket() + "/" + c.m.Prefix() + "[::-] ]")
 
 		prefixes, keys, err := c.m.List()
 		if err != nil {
