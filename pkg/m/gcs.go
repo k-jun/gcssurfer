@@ -33,8 +33,8 @@ type GCSManager interface {
 	MoveUp() error
 	MoveDown(prefix string) error
 	List() (prefixes []string, keys []string, err error)
-	ListObjects(key string) ([]string, error)
-	Download(object *storage.ObjectHandle, destPath string) (n int64, err error)
+	ListObjects(key string) ([]*storage.ObjectAttrs, error)
+	Download(object *storage.ObjectAttrs, destPath string) (n int64, err error)
 }
 
 func NewGCSManager(project string) GCSManager {
@@ -144,13 +144,12 @@ func (gcsm *GCSModel) List() (prefixes []string, keys []string, err error) {
 	return prefixes, keys, err
 }
 
-func (gcsm *GCSModel) ListObjects(key string) ([]string, error) {
+func (gcsm *GCSModel) ListObjects(key string) ([]*storage.ObjectAttrs, error) {
 	query := &storage.Query{
-		Prefix:    gcsm.prefix,
-		Delimiter: "/",
+		Prefix: gcsm.prefix,
 	}
 
-	var names []string
+	var objs []*storage.ObjectAttrs
 	it := gcsm.bucket.Objects(context.TODO(), query)
 	for {
 		attrs, err := it.Next()
@@ -158,19 +157,16 @@ func (gcsm *GCSModel) ListObjects(key string) ([]string, error) {
 			break
 		}
 		if err != nil {
-			return names, err
+			return objs, err
 		}
-		if attrs.Name == "" {
-			names = append(names, attrs.Prefix)
-			continue
-		}
-		names = append(names, attrs.Name)
+		objs = append(objs, attrs)
 
 	}
-	return names, nil
+	return objs, nil
 }
 
-func (gcsm *GCSModel) Download(object *storage.ObjectHandle, destPath string) (n int64, err error) {
+func (gcsm *GCSModel) Download(objectAttrs *storage.ObjectAttrs, destPath string) (n int64, err error) {
+	object := gcsm.bucket.Object(objectAttrs.Name)
 	if err = os.MkdirAll(filepath.Dir(destPath), 0700); err != nil {
 		return 0, err
 	}

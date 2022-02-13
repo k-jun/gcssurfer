@@ -7,10 +7,13 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/dustin/go-humanize"
 	"github.com/gdamore/tcell/v2"
 	"github.com/k-jun/gcssurfer/pkg/m"
 	"github.com/k-jun/gcssurfer/pkg/v"
 	"github.com/rivo/tview"
+	"github.com/shirou/gopsutil/v3/disk"
 )
 
 type Controller struct {
@@ -195,110 +198,113 @@ func (c Controller) moveDown(prefix string) {
 
 // Download ...
 func (c Controller) Download(key string) {
-	// c.Debugf("bucket=%s prefix=%s key=%s\n", c.m.Bucket(), c.m.Prefix(), key)
+	c.Debugf("bucket=%s prefix=%s key=%s\n", c.m.Bucket(), c.m.Prefix(), key)
 
-	// cwd, err := os.Getwd()
-	// if err != nil {
-	// 	panic(err)
-	// }
-	// cwd = cwd + fmt.Sprintf("%c", filepath.Separator)
+	cwd, err := os.Getwd()
+	if err != nil {
+		panic(err)
+	}
+	cwd = cwd + fmt.Sprintf("%c", filepath.Separator)
 
-	// totalSize := int64(0)
-	// existFilePath := []string{}
-	// objects := c.m.ListObjects(key)
-	// destPathMap := map[string]string{}
-	// for _, object := range objects {
-	// 	key := aws.ToString(object.Key)
-	// 	// download into under current directory
-	// 	destPath, err := filepath.Abs("./" + key)
-	// 	if err != nil {
-	// 		panic(err)
-	// 	}
-	// 	destPath = filepath.Clean(destPath)
+	totalSize := int64(0)
+	existFilePath := []string{}
+	objects, err := c.m.ListObjects(key)
+	if err != nil {
+		panic(err)
+	}
+	destPathMap := map[string]string{}
+	for _, object := range objects {
+		key := object.Name
+		// download into under current directory
+		destPath, err := filepath.Abs("./" + key)
+		if err != nil {
+			panic(err)
+		}
+		destPath = filepath.Clean(destPath)
 
-	// 	// just to be safe
-	// 	if !strings.HasPrefix(destPath, cwd) {
-	// 		panic(fmt.Sprintf("destPath is not under current directory: destPath=%s cwd=%s", destPath, cwd))
-	// 	}
+		// just to be safe
+		if !strings.HasPrefix(destPath, cwd) {
+			panic(fmt.Sprintf("destPath is not under current directory: destPath=%s cwd=%s", destPath, cwd))
+		}
 
-	// 	destPathMap[key] = destPath
+		destPathMap[key] = destPath
 
-	// 	c.Debugf("- %s %s\n", key, destPath)
-	// 	if _, err := os.Stat(destPath); err == nil {
-	// 		existFilePath = append(existFilePath, destPath)
-	// 	}
-	// 	totalSize += object.Size
-	// }
+		c.Debugf("- %s %s\n", key, destPath)
+		if _, err := os.Stat(destPath); err == nil {
+			existFilePath = append(existFilePath, destPath)
+		}
+		totalSize += object.Size
+	}
 
-	// // don't overwrite local files
-	// if len(existFilePath) > 0 {
-	// 	panic(fmt.Sprintf("\n[ABORT] following files are exists:\n%s\n", strings.Join(existFilePath, "\n")))
-	// }
+	// don't overwrite local files
+	if len(existFilePath) > 0 {
+		panic(fmt.Sprintf("\n[ABORT] following files are exists:\n%s\n", strings.Join(existFilePath, "\n")))
+	}
 
-	// // check disk available
-	// usage, err := disk.Usage(cwd)
-	// if err != nil {
-	// 	panic(err)
-	// }
-	// freeThreshold := int64(float64(usage.Free) * 0.8)
-	// c.Debugf("check disk free: totalSize=%d usage.Free=%d threshold=%d\n", totalSize, usage.Free, freeThreshold)
-	// if totalSize > freeThreshold {
-	// 	panic(fmt.Sprintf("[ABORT] there is not enough free space: download size=%d free=%d free threshold=%d", totalSize, usage.Free, freeThreshold))
-	// }
+	// check disk available
+	usage, err := disk.Usage(cwd)
+	if err != nil {
+		panic(err)
+	}
+	freeThreshold := int64(float64(usage.Free) * 0.8)
+	c.Debugf("check disk free: totalSize=%d usage.Free=%d threshold=%d\n", totalSize, usage.Free, freeThreshold)
+	if totalSize > freeThreshold {
+		panic(fmt.Sprintf("[ABORT] there is not enough free space: download size=%d free=%d free threshold=%d", totalSize, usage.Free, freeThreshold))
+	}
 
-	// nobjects := len(objects)
+	nobjects := len(objects)
 
-	// progress := tview.NewModal().
-	// 	SetText("Downloading\n\n").
-	// 	AddButtons([]string{"Done"})
+	progress := tview.NewModal().
+		SetText("Downloading\n\n").
+		AddButtons([]string{"Done"})
 
-	// confirm := tview.NewModal().
-	// 	SetText(fmt.Sprintf("Do you want to download?\n%d object(s)\ntotal size %s",
-	// 		nobjects,
-	// 		humanize.IBytes(uint64(totalSize)),
-	// 	)).
-	// 	AddButtons([]string{"OK", "Cancel"}).
-	// 	SetDoneFunc(func(buttonIndex int, buttonLabel string) {
-	// 		c.v.Pages.RemovePage("confirm").SwitchToPage("main")
-	// 		if buttonLabel == "OK" {
-	// 			c.v.Pages.AddAndSwitchToPage("progress", progress, true)
+	confirm := tview.NewModal().
+		SetText(fmt.Sprintf("Do you want to download?\n%d object(s)\ntotal size %s",
+			nobjects,
+			humanize.IBytes(uint64(totalSize)),
+		)).
+		AddButtons([]string{"OK", "Cancel"}).
+		SetDoneFunc(func(buttonIndex int, buttonLabel string) {
+			c.v.Pages.RemovePage("confirm").SwitchToPage("main")
+			if buttonLabel == "OK" {
+				c.v.Pages.AddAndSwitchToPage("progress", progress, true)
 
-	// 			go func() {
-	// 				downloadedSize := int64(0)
-	// 				title := "Downloading"
+				go func() {
+					downloadedSize := int64(0)
+					title := "Downloading"
 
-	// 				for i, object := range objects {
-	// 					key := aws.ToString(object.Key)
-	// 					c.Debugf("download %s\n", key)
-	// 					n, err := c.m.Download(object, destPathMap[key])
+					for i, object := range objects {
+						key := aws.ToString(&object.Name)
+						c.Debugf("download %s\n", key)
+						n, err := c.m.Download(object, destPathMap[key])
 
-	// 					if err != nil {
-	// 						panic(err)
-	// 					}
+						if err != nil {
+							panic(err)
+						}
 
-	// 					downloadedSize += n
+						downloadedSize += n
 
-	// 					if i+1 == nobjects {
-	// 						title = "Downloaded"
-	// 					}
+						if i+1 == nobjects {
+							title = "Downloaded"
+						}
 
-	// 					c.v.App.QueueUpdateDraw(func() {
-	// 						progress.SetText(fmt.Sprintf("%s\n%d/%d objects\n%s/%s",
-	// 							title,
-	// 							i+1,
-	// 							nobjects,
-	// 							humanize.IBytes(uint64(downloadedSize)),
-	// 							humanize.IBytes(uint64(totalSize)),
-	// 						))
-	// 					})
-	// 				}
+						c.v.App.QueueUpdateDraw(func() {
+							progress.SetText(fmt.Sprintf("%s\n%d/%d objects\n%s/%s",
+								title,
+								i+1,
+								nobjects,
+								humanize.IBytes(uint64(downloadedSize)),
+								humanize.IBytes(uint64(totalSize)),
+							))
+						})
+					}
 
-	// 				progress.SetDoneFunc(func(buttonIndex int, buttonLabel string) {
-	// 					c.v.Pages.RemovePage("progress").SwitchToPage("main")
-	// 				})
-	// 			}()
-	// 		}
-	// 	})
+					progress.SetDoneFunc(func(buttonIndex int, buttonLabel string) {
+						c.v.Pages.RemovePage("progress").SwitchToPage("main")
+					})
+				}()
+			}
+		})
 
-	// c.v.Pages.AddAndSwitchToPage("confirm", confirm, true)
+	c.v.Pages.AddAndSwitchToPage("confirm", confirm, true)
 }
