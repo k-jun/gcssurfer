@@ -131,11 +131,14 @@ func (gcsm *GCSModel) List() (prefixes []string, keys []string, err error) {
 		if err != nil {
 			return prefixes, keys, err
 		}
+
 		if attrs.Name == "" {
-			prefixes = append(prefixes, attrs.Prefix)
+			prefix := strings.Replace(attrs.Prefix, gcsm.prefix, "", 1)
+			prefixes = append(prefixes, prefix)
 			continue
 		}
-		keys = append(keys, attrs.Name)
+		name := strings.Replace(attrs.Name, gcsm.prefix, "", 1)
+		keys = append(keys, name)
 
 	}
 	return prefixes, keys, err

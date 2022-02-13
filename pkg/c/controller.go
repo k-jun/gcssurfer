@@ -123,7 +123,7 @@ func (c Controller) updateList() {
 	if c.m.Bucket() == nil {
 		c.Debugf("select bucket\n")
 		buckets := c.m.AvailableBuckets()
-		c.Debugf("available buckets=%s\n", buckets)
+		c.Debugf("available buckets=%v\n", buckets)
 
 		c.v.List.SetTitle("[ [::b]gs://[::-] ]")
 
@@ -151,6 +151,7 @@ func (c Controller) updateList() {
 		if err != nil {
 			panic(err)
 		}
+		c.Debugf("prefix=%s\n", c.m.Prefix())
 		c.Debugf("prefixes=%s keys=%s\n", prefixes, keys)
 
 		for _, _prefix := range prefixes {
