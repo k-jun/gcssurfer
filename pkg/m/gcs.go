@@ -176,11 +176,11 @@ func (gcsm *GCSModel) Download(objectAttrs *storage.ObjectAttrs, destPath string
 		return 0, fmt.Errorf("exists")
 	}
 
-	f, err := os.Create(destPath)
+	f, err := os.Create(filepath.Clean(destPath))
 	if err != nil {
 		return 0, err
 	}
-	// #gosec G307
+	// #nosec G307
 	defer func() {
 		if err := f.Close(); err != nil {
 			panic(err)

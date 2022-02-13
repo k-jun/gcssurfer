@@ -52,7 +52,7 @@ func init() {
 			panic(err)
 		}
 		os.Args[0] = argv0
-		/* #gosec G204 */
+		/* #nosec G204 */
 		if err := syscall.Exec(argv0, os.Args, env); err != nil {
 			panic(err)
 		}
