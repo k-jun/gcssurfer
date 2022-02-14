@@ -35,8 +35,8 @@ type CLI struct {
 	Debug   string           `help:"Write debug log info file" short:"d" type:"path"`
 	Version kong.VersionFlag `help:"Print version information and exit" short:"v"`
 
-	Project string `help:"Project id search into" short:"p" arg:"required"`
-	Bucket  string `help:"GCS bucket name" short:"b" arg:"optional"`
+	Project string `help:"Project id search into" short:"p" required:""`
+	Bucket  string `help:"GCS bucket name" short:"b" optional:""`
 }
 
 func init() {
